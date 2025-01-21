@@ -189,7 +189,15 @@ class TwitterMonitor:
             self.driver.get(f"https://twitter.com/{username}")
             time.sleep(random.uniform(4, 8))
             
-            # Add more scrolls to ensure content loads
+            # Navigate to Posts tab
+            try:
+                posts_tab = self.wait.until(EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'a[href$="/tweets"]')))
+                posts_tab.click()
+                time.sleep(random.uniform(2, 4))
+            except:
+                print(f"Could not find Posts tab for {username}, continuing with current view")
+            
             for _ in range(2):
                 scroll_amount = random.randint(300, 700)
                 self.driver.execute_script(f"window.scrollBy(0, {scroll_amount})")
@@ -203,24 +211,29 @@ class TwitterMonitor:
             new_tweets = []
             for tweet in tweet_elements[:3]:
                 try:
-                    # Get tweet text - make sure to get the full text content
-                    tweet_text = ''
+                    # First and most important check: Look for socialContext which indicates a repost
                     try:
-                        # First try to get the main tweet text
-                        tweet_text = tweet.find_element(By.CSS_SELECTOR, '[data-testid="tweetText"]').text
+                        social_context = tweet.find_element(By.CSS_SELECTOR, 'span[data-testid="socialContext"]')
+                        print("Skipping - Found repost indicator")
+                        continue
                     except:
-                        # If that fails, get all text content
-                        tweet_text = tweet.text
+                        # No socialContext found - this is good, might be an original tweet
+                        pass
+
+                    # Get the tweet text
+                    try:
+                        tweet_text = tweet.find_element(By.CSS_SELECTOR, '[data-testid="tweetText"]').text.strip()
+                    except:
+                        print("Couldn't find tweet text, skipping")
+                        continue
+                        
+                    print(f"Processing original tweet: {tweet_text}")
                     
-                    tweet_text = tweet_text.strip()
-                    print(f"Processing tweet text: {tweet_text}")
-                    
-                    # Look for address pattern using compiled regex
-                    matches = re.findall(r'\b[a-km-zA-HJ-NP-Z1-9]{32,44}\b', tweet_text)
+                    # Process addresses for original tweets only
+                    matches = re.findall(self.address_pattern, tweet_text)
                     
                     if matches:
-                        print(f"Found addresses in tweet: {matches}")
-                        # Write to snipe list
+                        print(f"Found addresses in original tweet: {matches}")
                         snipe_path = "../archie-jit-snipe-version-1.0/pending-snipe-list.txt"
                         with open(snipe_path, 'a') as f:
                             for address in matches:
@@ -247,6 +260,7 @@ class TwitterMonitor:
                             'url': tweet_link,
                             'found_addresses': matches
                         })
+                        print(f"Added new original tweet with addresses: {matches}")
                         
                 except StaleElementReferenceException:
                     continue
@@ -366,9 +380,10 @@ def main():
     
     try:
         ACCOUNTS_TO_MONITOR = [
+            "MELANIATRUMP",
+            "v_mello_",
             "realDonaldTrump",
             "mcuban",
-            "MELANIATRUMP",
             "IvankaTrump",
             "EricTrump",
             "DonaldJTrumpJr",
