@@ -1,0 +1,60 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyc
+*.pyo
+*.pdb
+.Python
+env/
+venv/
+.venv/
+**/venv/
+**/.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+dist/
+build/
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.tox/
+.dask-worker-space/
+ipynb_checkpoints/
+
+# === TypeScript ===
+node_modules/
+**/node_modules/
+dist/
+build/
+*.tsbuildinfo
+.npm/
+.npm-cache/
+package-lock.json
+yarn.lock
+.pnpm-debug.log
+.npm-debug.log
+.eslintcache
+
+# === Environment Files ===
+.env
+**/.env
+
+# === General ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+*.swp
+*.swo
+*.bak
+
+# Ignore database files in any directory
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
