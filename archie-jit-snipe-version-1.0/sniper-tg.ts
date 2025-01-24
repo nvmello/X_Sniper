@@ -29,7 +29,6 @@ import base58 from "bs58";
 import {
   BUY_AMOUNT_SOL,
   DEFAULT_TOKEN,
-  ENABLE_ONGOING_SUPPORT_FEE,
   ENABLE_RUG_CHECKS,
   JITO_TIP_AMOUNT,
   MAX_SINGLE_OWNER_PERCENTAGE,
@@ -44,7 +43,6 @@ import {
   logger,
   rayFee,
   retrieveEnvVariable,
-  sniperSupportFeeAddress,
   sniperWallet,
   solanaConnection,
 } from "./constants";

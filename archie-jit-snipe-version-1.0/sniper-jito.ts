@@ -44,7 +44,6 @@ import base58 from "bs58";
 import {
   BUY_AMOUNT_SOL,
   DEFAULT_TOKEN,
-  ENABLE_ONGOING_SUPPORT_FEE,
   ENABLE_RUG_CHECKS,
   JITO_ENDPOINTS,
   JITO_TIP_AMOUNT,
@@ -60,7 +59,6 @@ import {
   USE_PENDING_SNIPE_LIST,
   logger,
   rayFee,
-  sniperSupportFeeAddress,
   sniperWallet,
   solanaConnection,
 } from "./constants";
@@ -299,17 +297,6 @@ async function buyToken(
         lamports: BigInt(JITO_TIP_AMOUNT * LAMPORTS_PER_SOL),
       })
     );
-
-    //OPTIONAL 1% FEE on trade amount for ongoing access to support and sniper bot upgrades/fixes on archie's discord
-    if (ENABLE_ONGOING_SUPPORT_FEE) {
-      transactionIx.push(
-        SystemProgram.transfer({
-          fromPubkey: sniperWallet.publicKey,
-          toPubkey: new PublicKey(sniperSupportFeeAddress),
-          lamports: BigInt(BUY_AMOUNT_SOL * LAMPORTS_PER_SOL * 0.01),
-        })
-      );
-    }
 
     let { blockhash, lastValidBlockHeight } =
       await connection.getLatestBlockhash({

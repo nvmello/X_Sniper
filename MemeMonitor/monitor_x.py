@@ -40,6 +40,7 @@ import re
 import random
 
 ACCOUNTS_TO_MONITOR = [
+            "v_mello_",
             "mcuban",
             "realDonaldTrump",
             "BarronXSpaces",
@@ -365,14 +366,14 @@ class TwitterMonitor:
             new_tweets = []
             for tweet in tweet_elements[:3]:
                 try:
-                    # First and most important check: Look for socialContext which indicates a repost
-                    try:
-                        social_context = tweet.find_element(By.CSS_SELECTOR, 'span[data-testid="socialContext"]')
-                        print("Skipping - Found repost indicator")
-                        continue
-                    except:
-                        # No socialContext found - this is good, might be an original tweet
-                        pass
+                    # # First and most important check: Look for socialContext which indicates a repost
+                    # try:
+                    #     social_context = tweet.find_element(By.CSS_SELECTOR, 'span[data-testid="socialContext"]')
+                    #     print("Skipping - Found repost indicator")
+                    #     continue
+                    # except:
+                    #     # No socialContext found - this is good, might be an original tweet
+                    #     pass
 
                     # Get the tweet text
                     try:
