@@ -22,7 +22,6 @@ Dependencies:
     - datetime: For timestamp management
     - os: For file operations
 """
-
 import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -40,6 +39,22 @@ from dotenv import load_dotenv
 import re
 import random
 
+ACCOUNTS_TO_MONITOR = [
+            "mcuban",
+            "realDonaldTrump",
+            "BarronXSpaces",
+            # "MELANIATRUMP",
+            "mcuban",
+            "IvankaTrump",
+            "EricTrump",
+            "mcuban",
+            "DonaldJTrumpJr",
+            # "elonmusk",
+            # "JDVance",
+            # "mrbeast",
+            # "joerogan",
+        ]
+
 class TwitterAccount:
     """
     Represents a Twitter account with associated credentials and state management.
@@ -52,16 +67,7 @@ class TwitterAccount:
         consecutive_failures (int): Count of consecutive login/operation failures
         cooldown_until (float): Timestamp until account is available again
     """
-    
     def __init__(self, email, password, username):
-        """
-        Initialize a Twitter account with credentials.
-        
-        Args:
-            email (str): Account email address
-            password (str): Account password
-            username (str): Twitter username
-        """
         self.email = email
         self.password = password
         self.username = username
@@ -83,7 +89,6 @@ class TwitterMonitor:
         latest_tweets (dict): Cache of most recent tweet IDs per user
         processed_addresses (set): Set of already processed contract addresses
     """
-    
     def __init__(self, proxy=None):
         """
         Initialize the Twitter monitoring system.
@@ -96,7 +101,7 @@ class TwitterMonitor:
         self.current_account_index = 0
         self.initialize_accounts()
         
-        # Initialize monitoring parameters
+        # Other initialization code remains the same
         self.address_pattern = r'\b[a-km-zA-HJ-NP-Z1-9]{32,44}\b'
         self.keywords = []
         self.latest_tweets = {}
@@ -117,44 +122,43 @@ class TwitterMonitor:
             - Various Chrome options for stability
             - CDP commands for additional stealth
         """
-        self.options = Options()
+        self.options = Options()  # Initialize Chrome options object
+    
+        # Anti-bot detection settings
+        self.options.add_argument('--disable-blink-features=AutomationControlled')  # Disables ChromeDriver flags
+        self.options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])  # Removes automation indicators
+        self.options.add_experimental_option('useAutomationExtension', False)  # Disables automation extensions
         
-        # Enhanced stealth settings
-        self.options.add_argument('--disable-blink-features=AutomationControlled')
-        self.options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
-        self.options.add_experimental_option('useAutomationExtension', False)
+        # Window and performance settings
+        self.options.add_argument('--window-size=600,300')  # Sets specific window dimensions
+        self.options.add_argument('--disable-extensions')  # Prevents extension loading
+        self.options.add_argument('--disable-infobars')  # Removes "Chrome is being controlled by automation" banner
+        self.options.add_argument('--disable-dev-shm-usage')  # Prevents issues with limited /dev/shm on Linux
+        self.options.add_argument('--no-sandbox')  # Disables sandbox for stability
+        self.options.add_argument('--disable-gpu')  # Reduces hardware acceleration issues
         
-        # Browser settings for stability and performance
-        self.options.add_argument('--window-size=1920,1080')
-        self.options.add_argument('--start-maximized')
-        self.options.add_argument('--disable-extensions')
-        self.options.add_argument('--disable-infobars')
-        self.options.add_argument('--disable-dev-shm-usage')
-        self.options.add_argument('--no-sandbox')
-        self.options.add_argument('--disable-gpu')
-        
-        # User agent rotation for anti-detection
+        # Randomize browser fingerprint with different user agents
         user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0'
         ]
+        self.options.add_argument(f'user-agent={random.choice(user_agents)}')  # Sets random user agent
 
-        self.options.add_argument(f'user-agent={random.choice(user_agents)}')
-
+        # Configure proxy if provided
         if proxy:
             self.options.add_argument(f'--proxy-server={proxy}')
         
-        # Initialize WebDriver with configured options
-        self.service = Service(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=self.service, options=self.options)
-        self.wait = WebDriverWait(self.driver, 10)
+        # Initialize Chrome driver
+        self.service = Service(ChromeDriverManager().install())  # Manages ChromeDriver installation
+        self.driver = webdriver.Chrome(service=self.service, options=self.options)  # Creates browser instance
+        self.wait = WebDriverWait(self.driver, 10)  # Sets up implicit wait for elements
         
-        # Execute CDP commands for additional stealth
-        self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+        # Additional anti-detection measures using Chrome DevTools Protocol (CDP)
+        self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {  # Override user agent at network level
             "userAgent": random.choice(user_agents)
         })
-        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")  # Hides webdriver flag
 
     def initialize_accounts(self):
         """
@@ -168,7 +172,8 @@ class TwitterMonitor:
         Raises:
             ValueError: If no valid accounts are found in environment variables
         """
-        for i in range(1, 5):
+        # Load accounts from environment variables
+        for i in range(1, 6):  # Assuming we have 4 accounts
             email = os.getenv(f'TWITTER_EMAIL_{i}')
             password = os.getenv(f'TWITTER_PASSWORD_{i}')
             username = os.getenv(f'TWITTER_USERNAME_{i}')
@@ -193,6 +198,7 @@ class TwitterMonitor:
             self.current_account_index = (self.current_account_index + 1) % len(self.accounts)
             account = self.accounts[self.current_account_index]
             
+            # Skip accounts in cooldown
             if account.cooldown_until > current_time:
                 attempts += 1
                 continue
@@ -203,17 +209,15 @@ class TwitterMonitor:
 
     def handle_account_failure(self, account):
         """
-        Handle account failure with exponential backoff.
+        Manages short cooldown periods for account rotation.
         
         Args:
-            account (TwitterAccount): Account that experienced a failure
-            
-        Implements exponential backoff with maximum cooldown of 120 minutes.
+            account: TwitterAccount object that failed login/operation
         """
         account.consecutive_failures += 1
         
         if account.consecutive_failures > 0:
-            cooldown_minutes = min(120, 5 * (2 ** (account.consecutive_failures - 1)))
+            cooldown_minutes = min(5, 1 * (2 ** (account.consecutive_failures - 1)))  # Max 5 minutes
             account.cooldown_until = time.time() + (cooldown_minutes * 60)
             print(f"Account {account.username} in cooldown for {cooldown_minutes} minutes")
 
@@ -273,14 +277,14 @@ class TwitterMonitor:
             self.driver.get("https://twitter.com/i/flow/login")
             time.sleep(random.uniform(4, 7))
             
-            # Email entry
+            # Enter email
             email_input = self.wait.until(EC.presence_of_element_located(
                 (By.XPATH, "//input[@autocomplete='username']")))
             self._type_like_human(email_input, account.email)
             email_input.send_keys(Keys.RETURN)
             time.sleep(random.uniform(3, 5))
             
-            # Handle unusual activity check
+            # Check for unusual activity prompt and handle username verification
             try:
                 username_input = self.wait.until(EC.presence_of_element_located(
                     (By.XPATH, "//input[@data-testid='ocfEnterTextTextInput']")))
@@ -290,16 +294,17 @@ class TwitterMonitor:
                     username_input.send_keys(Keys.RETURN)
                     time.sleep(random.uniform(3, 5))
             except TimeoutException:
+                # No unusual activity detected, continue with normal login
                 pass
                 
-            # Password entry
+            # Enter password
             password_input = self.wait.until(EC.presence_of_element_located(
                 (By.XPATH, "//input[@name='password']")))
             self._type_like_human(password_input, account.password)
             password_input.send_keys(Keys.RETURN)
             time.sleep(random.uniform(4, 7))
             
-            # Verify login
+            # Verify login success
             try:
                 self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="tweet"]')))
                 print(f"✓ Successfully logged in with {account.username}")
@@ -338,7 +343,7 @@ class TwitterMonitor:
             self.driver.get(f"https://twitter.com/{username}")
             time.sleep(random.uniform(4, 8))
             
-            # Navigate to Posts tab with error handling
+            # Navigate to Posts tab
             try:
                 posts_tab = self.wait.until(EC.presence_of_element_located(
                     (By.CSS_SELECTOR, 'a[href$="/tweets"]')))
@@ -347,7 +352,6 @@ class TwitterMonitor:
             except:
                 print(f"Could not find Posts tab for {username}, continuing with current view")
             
-            # Implement human-like scrolling behavior
             for _ in range(2):
                 scroll_amount = random.randint(300, 700)
                 self.driver.execute_script(f"window.scrollBy(0, {scroll_amount})")
@@ -359,18 +363,18 @@ class TwitterMonitor:
             self.handle_account_success(account)
             
             new_tweets = []
-            for tweet in tweet_elements[:3]:  # Process only the 3 most recent tweets
+            for tweet in tweet_elements[:3]:
                 try:
-                    # Check and filter reposts
+                    # First and most important check: Look for socialContext which indicates a repost
                     try:
                         social_context = tweet.find_element(By.CSS_SELECTOR, 'span[data-testid="socialContext"]')
                         print("Skipping - Found repost indicator")
                         continue
                     except:
-                        # No socialContext found - this is an original tweet
+                        # No socialContext found - this is good, might be an original tweet
                         pass
 
-                    # Extract tweet content
+                    # Get the tweet text
                     try:
                         tweet_text = tweet.find_element(By.CSS_SELECTOR, '[data-testid="tweetText"]').text.strip()
                     except:
@@ -379,7 +383,7 @@ class TwitterMonitor:
                         
                     print(f"Processing original tweet: {tweet_text}")
                     
-                    # Process addresses for original tweets
+                    # Process addresses for original tweets only
                     matches = re.findall(self.address_pattern, tweet_text)
                     
                     if matches:
@@ -392,17 +396,14 @@ class TwitterMonitor:
                                     f.write(f"{address}\n")
                                     self.processed_addresses.add(address)
                     
-                    # Extract tweet metadata
                     tweet_link = tweet.find_element(By.CSS_SELECTOR, 'a[href*="/status/"]').get_attribute('href')
                     tweet_id = tweet_link.split('/')[-1]
                     
-                    # Implement deduplication logic
                     if username in self.latest_tweets and tweet_id <= self.latest_tweets[username]:
                         continue
                     
                     self.latest_tweets[username] = max(tweet_id, self.latest_tweets.get(username, '0'))
                     
-                    # Check for relevant content
                     if matches or any(keyword.lower() in tweet_text.lower() for keyword in self.keywords):
                         timestamp = tweet.find_element(By.TAG_NAME, 'time').get_attribute('datetime')
                         
@@ -459,7 +460,7 @@ class TwitterMonitor:
             - Duplicate checking
             - Persistent storage
         """
-        addresses = re.findall(self.address_pattern, tweet_text)
+        addresses = self.address_pattern.findall(tweet_text)
         new_addresses = []
         
         if addresses:
@@ -467,6 +468,7 @@ class TwitterMonitor:
                 snipe_path = "/Users/nickvmorello/Projects/Old/Archie_Sniper/archie-jit-snipe-version-1.0/pending-snipe-list.txt"
                 with open(snipe_path, 'a') as f:
                     for address in addresses:
+                        # Check if address was already processed
                         if address not in self.processed_addresses:
                             f.write(f"{address}\n")
                             self.processed_addresses.add(address)
@@ -477,14 +479,15 @@ class TwitterMonitor:
     
         return new_addresses
 
-    def monitor_accounts(self, usernames, min_interval=60, max_interval=180):
+    def monitor_accounts(self, usernames, min_interval=10, max_interval=20):
         """
-        Main monitoring loop for tracking specified Twitter accounts.
+        Main monitoring loop with aggressive polling intervals.
+        With 5 accounts rotating, each account gets ~2-4 minutes rest between uses.
         
         Args:
             usernames (list): List of Twitter usernames to monitor
-            min_interval (int): Minimum seconds between checks (default: 60)
-            max_interval (int): Maximum seconds between checks (default: 180)
+            min_interval (int): Minimum seconds between checks (default: 30)
+            max_interval (int): Maximum seconds between checks (default: 20)
             
         Features:
             - Account rotation
@@ -504,29 +507,27 @@ class TwitterMonitor:
 
         while True:
             try:
-                # Get next available account
                 current_account = self.get_next_available_account()
                 
                 if not current_account:
                     print("All accounts are in cooldown. Waiting...")
-                    time.sleep(300)  # 5-minute wait when all accounts are in cooldown
+                    time.sleep(60)  # Wait 1 minute
                     continue
                 
-                # Handle login and browser management
+                # Try to login if needed
                 if not hasattr(self, 'logged_in_account') or self.logged_in_account != current_account:
                     self.restart_browser()
                     if not self.login(current_account):
                         continue
                     self.logged_in_account = current_account
 
-                # Monitor each account in the list
                 for username in usernames:
                     new_tweets = self.check_user_tweets(username, current_account)
                     
-                    if new_tweets is None:  # Major error occurred
-                        break
+                    if new_tweets is None:  # Indicates a major error
+                        break  # Will trigger account switch
                     
-                    # Process and archive new tweets
+                    # Process the new tweets we found
                     for tweet in new_tweets:
                         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         print(f"\n{'='*60}")
@@ -540,7 +541,7 @@ class TwitterMonitor:
                             print(f"Found contract addresses: {', '.join(tweet['found_addresses'])}")
                         print(f"{'='*60}\n")
                         
-                        # Archive tweet data
+                        # Save to file
                         with open('crypto_tweets.json', 'a') as f:
                             tweet_data = {
                                 'detection_time': current_time,
@@ -552,9 +553,8 @@ class TwitterMonitor:
                             }
                             f.write(json.dumps(tweet_data) + '\n')
                     
-                    time.sleep(random.uniform(8, 15))  # Delay between checking different accounts
+                    time.sleep(random.uniform(10, 20))
                 
-                # Random delay between monitoring cycles
                 cycle_interval = random.uniform(min_interval, max_interval)
                 print(f"\nWaiting {int(cycle_interval)} seconds before next cycle...")
                 time.sleep(cycle_interval)
@@ -565,38 +565,10 @@ class TwitterMonitor:
                 time.sleep(random.uniform(min_interval, max_interval))
 
 def main():
-    """
-    Main entry point for the Twitter monitoring system.
-    
-    Features:
-        - Environment variable configuration
-        - Account list management
-        - Error handling
-        - Graceful shutdown
-    """
     proxy = os.getenv('PROXY')
     monitor = TwitterMonitor(proxy)
     
     try:
-        # Define accounts to monitor
-        ACCOUNTS_TO_MONITOR = [
-            "realDonaldTrump",
-            "mcuban",
-            "BarronXSpaces",
-            "MELANIATRUMP",
-            "IvankaTrump",
-            "EricTrump",
-            "DonaldJTrumpJr",
-            "elonmusk",
-            "JDVance",
-        ]
-        
-        # Load additional accounts from environment
-        additional_accounts = os.getenv('ADDITIONAL_ACCOUNTS')
-        if additional_accounts:
-            ACCOUNTS_TO_MONITOR.extend(additional_accounts.split(','))
-        
-        # Start monitoring
         monitor.monitor_accounts(ACCOUNTS_TO_MONITOR)
         
     except KeyboardInterrupt:

@@ -57,4 +57,5 @@ Thumbs.db
 **/*.db
 **/*.db-shm
 **/*.db-wal
+**/crypto_tweets.json
 
