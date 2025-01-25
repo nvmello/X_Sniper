@@ -425,29 +425,6 @@ async function buyToken(
   }
 }
 
-function fetchPendingSnipeList(): string[] {
-  logger.info("Fetching snipe list...");
-  try {
-    const snipeList = fs
-      .readFileSync(pendingSnipesListLocation, "utf-8")
-      .split("\n")
-      .map((item) => item.trim())
-      .filter((item) => item);
-
-    pendingSnipeList = snipeList;
-
-    logger.info(`Snipe list fetched: ${snipeList.length} tokens. 
-    Tokens: 
-    ${snipeList.join("\n")}
-    `);
-
-    return snipeList;
-  } catch (error) {
-    const errorMessage = `Error fetching snipe list: ${error}`;
-    logger.error(errorMessage);
-  }
-}
-
 function logConfigurations() {
   logger.info("|...CONFIGURATIONS...|");
   logger.info(`Sniper wallet: ${sniperWallet.publicKey.toString()}`);
