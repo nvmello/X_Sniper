@@ -85,20 +85,20 @@ async fn start_services() -> Result<(), String> {
     std::thread::sleep(std::time::Duration::from_secs(2));
 
     // Start Python script using venv Python
-    println!("Starting Python scraper...");
-    let venv_python = get_venv_python(&project_root);
-    println!("Using Python from: {:?}", venv_python);
+    // println!("Starting Python scraper...");
+    // let venv_python = get_venv_python(&project_root);
+    // println!("Using Python from: {:?}", venv_python);
     
-    let scraper = Command::new(venv_python)
-        .arg("monitor_x.py")
-        .env("PYTHONUNBUFFERED", "1")
-        .current_dir(&scraper_dir)  // Set working directory to scraper dir
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to start Python scraper: {}", e))?;
+    // let scraper = Command::new(venv_python)
+    //     .arg("monitor_x.py")
+    //     .env("PYTHONUNBUFFERED", "1")
+    //     .current_dir(&scraper_dir)  // Set working directory to scraper dir
+    //     .stdout(Stdio::piped())
+    //     .stderr(Stdio::piped())
+    //     .spawn()
+    //     .map_err(|e| format!("Failed to start Python scraper: {}", e))?;
 
-    spawn_and_log("Python", scraper);
+    // spawn_and_log("Python", scraper);
 
     //Start TypeScript bot
     println!("Starting sniper...");
