@@ -1,49 +1,12 @@
 import "./App.css";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
+import Temp from "./components/temp";
+import Scrollview from "./components/scrollview";
 
 function App() {
   const [sniperStarted, setSniperStarted] = useState(false);
   const [scraperStarted, setScraperStarted] = useState(false);
-  const [newUser, setNewUser] = useState<string>("@");
-
-  // Sending a list of users
-  async function sendUser() {
-    const username = newUser.includes("@")
-      ? newUser.replace(new RegExp("@", "g"), "")
-      : newUser;
-    const user = JSON.stringify({ username, status: true }); // Convert to JSON string
-    await invoke("send_message", { subject: "users.data", payload: user })
-      .then(() => console.log("Sent user list to NATS!"))
-      .catch((err) => console.error("Error:", err));
-
-    setNewUser("@"); // Clear input after adding
-  }
-
-  async function removeUser() {
-    const username = newUser.includes("@")
-      ? newUser.replace(new RegExp("@", "g"), "")
-      : newUser;
-    const user = JSON.stringify({ username, status: false }); // Convert to JSON string
-    await invoke("send_message", { subject: "users.data", payload: user })
-      .then(() => console.log("Sent user list to NATS!"))
-      .catch((err) => console.error("Error:", err));
-
-    setNewUser("@"); // Clear input after adding
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-
-    // Ensure "@" is always at the start
-    if (!value.startsWith("@")) {
-      value = "@" + value.replace(/^@+/, ""); // Prevent multiple '@'
-    }
-
-    // Update state
-    setNewUser(value);
-  };
-
   /**
    * This starts the swap scripts
    */
@@ -74,7 +37,7 @@ function App() {
   };
 
   return (
-    <main className="container mx-auto px-4 text-white">
+    <main className="text-white">
       <button
         onClick={runStartSniper}
         className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded mt-4"
@@ -88,27 +51,8 @@ function App() {
       >
         Start Scraper
       </button>
-      <div>
-        <input
-          className="py-2 px-4 rounded mt-4"
-          type="text"
-          value={newUser}
-          onChange={handleChange}
-          onKeyDown={(e) => e.key === "Enter" && sendUser()}
-        />
-        <button
-          onClick={sendUser}
-          className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4"
-        >
-          Add User
-        </button>
-        <button
-          onClick={removeUser}
-          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4"
-        >
-          Remove User
-        </button>
-      </div>
+      <Scrollview />
+      {/* <Temp /> */}
     </main>
   );
 }

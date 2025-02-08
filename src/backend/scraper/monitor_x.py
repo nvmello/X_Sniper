@@ -39,6 +39,7 @@ import os
 from dotenv import load_dotenv
 import re
 import random
+import requests
 import asyncio
 import nats
 import traceback
@@ -358,29 +359,218 @@ class TwitterMonitor:
             print(f"✗ Login failed for {account.username}: {e}")
             self.handle_account_failure(account)
             return False
+    def handle_potential_redirects(self):
+        """Handle any Twitter redirects or overlays that might appear"""
+        try:
+            # Try to find and close any login prompts
+            overlay_selectors = [
+                '[data-testid="close"]',  # Generic close button
+                '[data-testid="confirmationSheetClose"]',  # Confirmation sheet close
+                '[data-testid="LoginModal_Close_Button"]',  # Login modal close
+                'div[aria-label="Close"]'  # Generic close by aria-label
+            ]
+            
+            for selector in overlay_selectors:
+                try:
+                    close_button = WebDriverWait(self.driver, 3).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    close_button.click()
+                    print(f"Closed overlay with selector: {selector}")
+                    time.sleep(1)  # Short wait after closing
+                except:
+                    continue
+                    
+        except Exception as e:
+            print(f"Error handling redirects: {e}")
+            # Continue execution even if handling fails
 
-    def check_user_tweets(self, username, account):
+    def needs_photo_update(self, username):
         """
-        Check recent tweets from specified user.
-        
-        Args:
-            username (str): Twitter username to monitor
-            account (TwitterAccount): Account being used for monitoring
-            
-        Returns:
-            list: List of new tweets containing monitored content
-            
-        Features:
-            - Repost filtering
-            - Contract address detection
-            - Tweet deduplication
-            - Random scrolling behavior
-            - Timestamp extraction
-            - JSON data storage
+        Check if a user needs their photo updated or downloaded.
+        Returns True if update needed, False otherwise.
         """
         try:
+            conn = sqlite3.connect("../../database/users.db")
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT photopath FROM users WHERE username = ?", (username,))
+            result = cursor.fetchone()
+            
+            if not result or not result[0]:
+                return True
+                
+            # Check if the file exists
+            photo_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                result[0]
+            )
+            
+            if not os.path.exists(photo_path):
+                return True
+                
+            # Optionally, check if the photo is older than X days
+            # if os.path.exists(photo_path):
+            #     photo_age = time.time() - os.path.getmtime(photo_path)
+            #     if photo_age > (7 * 24 * 60 * 60):  # 7 days in seconds
+            #         return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Error checking photo status: {e}")
+            return True  # If there's an error, try to update the photo
+        finally:
+            conn.close()
+
+    def save_profile_photo(self, username):
+        """
+        Scrape and save the user's profile photo.
+        Returns the relative path to the saved photo or None if failed.
+        """
+        try:
+            # Try multiple selectors to find the profile image
+            selectors = [
+                f'div[data-testid="UserAvatar-Container-{username}"] img',
+                'img[src*="profile_images"]',
+                'img[alt*="profile"]',
+                'img[alt="Opens profile photo"]'
+            ]
+            
+            img_url = None
+            profile_img = None
+            
+            # Try each selector with a timeout
+            wait = WebDriverWait(self.driver, 5)
+            
+            for selector in selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        try:
+                            potential_url = element.get_attribute('src')
+                            if potential_url and 'profile_images' in potential_url:
+                                img_url = potential_url
+                                print(f"Found profile image URL: {img_url}")
+                                break
+                        except:
+                            continue
+                    if img_url:
+                        break
+                except Exception as e:
+                    print(f"Selector {selector} failed: {str(e)}")
+                    continue
+            
+            if not img_url:
+                print(f"Could not find profile photo URL for {username}")
+                return None
+                
+            # Transform URL to get highest resolution version
+            # Twitter URLs typically have _normal, _400x400, etc. - remove these
+            img_url = re.sub(r'_\d+x\d+', '', img_url)
+            print(f"Using transformed URL: {img_url}")
+            
+            # Create assets directory if it doesn't exist
+            assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "../frontend/", "assets")
+            os.makedirs(assets_dir, exist_ok=True)
+            
+            # Define the photo path
+            photo_path = os.path.join(assets_dir, f"{username}.png")
+            
+            # Download the image
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            response = requests.get(img_url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                print(f"Failed to download image: Status code {response.status_code}")
+                return None
+                
+            # Save the image
+            with open(photo_path, 'wb') as f:
+                f.write(response.content)
+                
+            print(f"Saved image to: {photo_path}")
+            
+            # Update database
+            relative_path = f"src/frontend/assets/{username}.png"
+            conn = sqlite3.connect("../../database/users.db")
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute(
+                    "UPDATE users SET photopath = ? WHERE username = ?",
+                    (relative_path, username)
+                )
+                conn.commit()
+                print(f"Updated database for {username}")
+                return relative_path
+            except sqlite3.Error as e:
+                print(f"Database error: {e}")
+                return None
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            print(f"Error saving profile photo for {username}: {e}")
+            traceback.print_exc()
+            return None
+
+
+    def check_user_tweets(self, username, account):
+        try:
+            print(f"Checking tweets for {username}...")
             self.driver.get(f"https://twitter.com/{username}")
+            
+            # Wait for page load
             time.sleep(random.uniform(4, 8))
+            
+            # Check if we need to update the photo
+            if self.needs_photo_update(username):
+                print(f"Attempting to get profile photo for {username}")
+                photo_result = self.save_profile_photo(username)
+                if photo_result:
+                    print(f"Successfully saved photo for {username}")
+                else:
+                    print(f"Failed to save photo for {username}")
+                
+            # Check and update profile photo
+            try:
+                conn = sqlite3.connect("../../database/users.db")
+                cursor = conn.cursor()
+                
+                try:
+                    cursor.execute("SELECT photopath FROM users WHERE username = ?", (username,))
+                    result = cursor.fetchone()
+                    
+                    needs_photo = False
+                    if not result or not result[0]:
+                        needs_photo = True
+                    else:
+                        photo_path = os.path.join(
+                            os.path.dirname(os.path.dirname(__file__)),
+                            result[0]
+                        )
+                        if not os.path.exists(photo_path):
+                            needs_photo = True
+                    
+                    if needs_photo:
+                        print(f"Attempting to get profile photo for {username}")
+                        photo_result = self.save_profile_photo(username)
+                        if photo_result:
+                            print(f"Successfully saved photo for {username}")
+                        else:
+                            print(f"Failed to save photo for {username}")
+                    
+                except sqlite3.Error as e:
+                    print(f"Database error while checking photo: {e}")
+                finally:
+                    conn.close()
+                    
+            except Exception as e:
+                print(f"Error in photo handling for {username}: {e}")
+                traceback.print_exc()
             
             # Navigate to Posts tab
             try:
@@ -526,7 +716,7 @@ class TwitterMonitor:
                         continue
                     self.logged_in_account = current_account
 
-                for username in users:
+                for username in users  *  4:
                     print("USERNAME IN USERNAMES: " + username[0])
                     new_tweets = self.check_user_tweets(username[0], current_account)
                     

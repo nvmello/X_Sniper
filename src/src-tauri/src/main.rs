@@ -2,6 +2,56 @@
 // These modules contain the logic for handling commands and services in your application.
 mod commands;
 mod services;
+use rusqlite::{Connection, Result};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+struct User {
+    username: String,
+    // mint: Option<String>,
+    photopath: String,
+    // amount: f64,
+}
+
+#[tauri::command]
+fn get_users() -> Result<Vec<User>, String> {
+    
+    // Get the current executable's directory (src-tauri)
+    let current_dir = std::env::current_dir()
+        .map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    // Navigate up one directory to project root, then to database
+    let db_path = current_dir
+        .parent()
+        .ok_or_else(|| "Failed to get parent directory".to_string())?
+        .join("database")
+        .join("users.db");
+    
+    println!("Attempting to connect to database at: {:?}", db_path);
+    
+    let conn = Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open database: {}", e))?;
+    
+    let mut stmt = conn
+        .prepare("SELECT username, mint, photopath, amount FROM users")
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+    
+    let users = stmt
+        .query_map([], |row| {
+            Ok(User {
+                username: row.get(0)?,
+                // mint: row.get(1)?,
+                photopath: row.get(2)?,
+                // amount: row.get(3)?,
+            })
+        })
+        .map_err(|e| format!("Failed to execute query: {}", e))?
+        .collect::<Result<Vec<User>, _>>()
+        .map_err(|e| format!("Failed to collect results: {}", e))?;
+
+    println!("Found {} users", users.len());
+    Ok(users)
+}
 
 // Import the `Builder` struct from the `tauri` crate.
 // `Builder` is used to configure and build the Tauri application.
@@ -43,6 +93,7 @@ fn main() {
         // `invoke_handler` allows the frontend (e.g., JavaScript) to call Rust functions.
         // Here, we register the `start_services` function from the `commands::services` module.
         .invoke_handler(tauri::generate_handler![
+            get_users,
             commands::services::start_sniper,
             commands::services::start_scraper,
             commands::services::send_message,

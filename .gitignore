@@ -6,6 +6,8 @@ Thumbs.db
 *.swo
 *.bak
 
+src/frontend/assets/
+
 # === Editor ===
 .vscode/
 .idea/

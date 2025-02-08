@@ -14,8 +14,8 @@ import { env_config } from "./config";
 const { owner, connection } = env_config;
 const inputMint = "So11111111111111111111111111111111111111112";
 
-const amount = 100000;
-const slippage = 1;
+const amount = 1000000000;
+const slippage = 25;
 const txVersion = "V0";
 const isInputSol = true;
 const isOutputSol = false;

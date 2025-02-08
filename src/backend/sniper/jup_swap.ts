@@ -7,7 +7,7 @@ export async function jup_swap(outputMint: string) {
   try {
     const inputMint = "So11111111111111111111111111111111111111112";
 
-    const amount = 1000000;
+    const amount = 1000000000;
     const slippageBps = 50;
     console.log(
       `Swapping ${amount} lamports from ${inputMint} to ${outputMint}...`
