@@ -25,7 +25,7 @@ async function startSwapHandler() {
       // First try Raydium swap
       console.log("🔄 Attempting Raydium swap...");
       await ray_swap(contractAddress);
-      console.log("✅ Raydium swap successful!");
+      console.log("💎💎💎💎💎💎 Raydium swap successful! 💎💎💎💎💎💎");
     } catch (rayError) {
       console.log("⚠️ Raydium swap failed, trying Jupiter...");
       console.error("Raydium error:", rayError);
@@ -33,7 +33,7 @@ async function startSwapHandler() {
       try {
         // Fallback to Jupiter swap
         await jup_swap(contractAddress);
-        console.log("✅ Jupiter swap successful!");
+        console.log("💎💎💎💎💎💎 Jupiter swap successful! 💎💎💎💎💎💎");
       } catch (jupError) {
         console.error("❌ Jupiter swap failed:", jupError);
         console.error("❌ Both swaps failed for contract:", contractAddress);

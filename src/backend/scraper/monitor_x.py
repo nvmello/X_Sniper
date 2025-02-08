@@ -43,6 +43,8 @@ import asyncio
 import nats
 import traceback
 import tracemalloc
+import sqlite3
+
 tracemalloc.start()
 
 ACCOUNTS_TO_MONITOR = [
@@ -50,13 +52,14 @@ ACCOUNTS_TO_MONITOR = [
             "mcuban",
             "realDonaldTrump",
             "BarronXSpaces",
+            'kanyewest',
+            "stoolpresidente", #dave portnoy
             # "MELANIATRUMP",
             "mcuban",
             "IvankaTrump",
             "EricTrump",
             "mcuban",
             "DonaldJTrumpJr",
-            # "stoolpresidente", #dave portnoy
             # "elonmusk",
             # "JDVance",
             # "mrbeast",
@@ -104,37 +107,21 @@ class TwitterMonitor:
         Initialize the Twitter monitoring system.
         """
         print("Starting TwitterMonitor initialization...")
-        
-        print("Setting up browser...")
         self.setup_browser(proxy)
-        print("Browser setup complete")
-        
-        print("Initializing account list...")
         self.accounts = []
         self.current_account_index = 0
-        
-        print("Loading accounts...")
         self.initialize_accounts()
-        print(f"Loaded {len(self.accounts)} accounts")
-        
-        print("Setting up monitoring parameters...")
         self.address_pattern = r'\b[a-km-zA-HJ-NP-Z1-9]{32,44}\b'
         self.keywords = []
         self.latest_tweets = {}
         self.snipe_list_path = "pending-snipe-list.txt"
         self.processed_addresses = set()
-        
-        print("Loading processed addresses...")
         self.load_processed_addresses()
-        print(f"Loaded {len(self.processed_addresses)} processed addresses")
-        
-        print("Setting up async event loop...")
         self.loop = asyncio.new_event_loop()
         self.loop_thread = threading.Thread(target=self.loop.run_forever, daemon=True)
         self.loop_thread.start()
-        
         print("TwitterMonitor initialization complete")
-    
+
     async def broadcast_message(self, address):
         """Internal method for broadcasting"""
         try:
@@ -165,26 +152,19 @@ class TwitterMonitor:
         try:
             print("Configuring Chrome options...")
             self.options = Options()
-            print("Created Options object")
 
             # Anti-bot detection settings
-            print("Adding anti-detection arguments...")
             self.options.add_argument('--disable-blink-features=AutomationControlled')
             self.options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
             self.options.add_experimental_option('useAutomationExtension', False)
-            print("Added anti-detection settings")
-
-            print("Adding performance settings...")
             self.options.add_argument('--window-size=1600,900')
             self.options.add_argument('--disable-extensions')
             self.options.add_argument('--disable-infobars')
             self.options.add_argument('--disable-dev-shm-usage')
             self.options.add_argument('--no-sandbox')
             self.options.add_argument('--disable-gpu')
-            print("Added performance settings")
 
             # Random user agent
-            print("Setting up user agent...")
             user_agents = [
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -192,39 +172,24 @@ class TwitterMonitor:
             ]
             selected_agent = random.choice(user_agents)
             self.options.add_argument(f'user-agent={selected_agent}')
-            print(f"Selected user agent: {selected_agent}")
 
             # Use local ChromeDriver
-            print("Setting up local ChromeDriver...")
             driver_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "drivers", "mac-arm64", "chromedriver")
             
             # Make sure ChromeDriver is executable
             if not os.path.exists(driver_path):
                 raise Exception(f"ChromeDriver not found at {driver_path}")
-            
             os.chmod(driver_path, 0o755)
-            print(f"Using ChromeDriver at: {driver_path}")
 
             # Add proxy if provided
             if proxy:
-                print(f"Setting up proxy: {proxy}")
                 self.options.add_argument(f'--proxy-server={proxy}')
 
-            print("Creating Chrome service...")
             self.service = Service(driver_path)
-            
-            print("Initializing Chrome driver...")
             self.driver = webdriver.Chrome(service=self.service, options=self.options)
-            print("Chrome driver initialized successfully")
-
-            print("Setting up WebDriverWait...")
             self.wait = WebDriverWait(self.driver, 10)
-            print("WebDriverWait configured")
-
-            print("Applying additional anti-detection measures...")
             self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": selected_agent})
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            print("Anti-detection measures applied")
 
             print("Browser setup completed successfully")
             
@@ -520,7 +485,7 @@ class TwitterMonitor:
         except Exception as e:
             print(f"Error loading processed addresses: {e}")
 
-    def monitor_accounts(self, usernames, min_interval=10, max_interval=20):
+    def monitor_accounts(self, min_interval=10, max_interval=20):
         """
         Main monitoring loop with aggressive polling intervals.
         With 5 accounts rotating, each account gets ~2-4 minutes rest between uses.
@@ -537,16 +502,15 @@ class TwitterMonitor:
             - Error recovery
             - JSON-based tweet archiving
         """
-        print("\nMONITORING CONFIGURATION:")
-        print("-"*30)
-        print(f"Check Interval: {min_interval}-{max_interval} seconds")
-        print(f"Number of accounts to monitor: {len(usernames)}")
-        print(f"Number of Twitter accounts available: {len(self.accounts)}")
-        print(f"Keywords being monitored: {', '.join(self.keywords)}")
-        print(f"Saving contract addresses to: {self.snipe_list_path}")
-        print("-"*30)
+
+        conn = sqlite3.connect("../../database/users.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users")  # Change 'users' to your actual table name
+
 
         while True:
+            cursor.execute("SELECT * FROM users")  # Change 'users' to your actual table name
+            users = cursor.fetchall()
             try:
                 current_account = self.get_next_available_account()
                 
@@ -562,8 +526,9 @@ class TwitterMonitor:
                         continue
                     self.logged_in_account = current_account
 
-                for username in usernames:
-                    new_tweets = self.check_user_tweets(username, current_account)
+                for username in users:
+                    print("USERNAME IN USERNAMES: " + username[0])
+                    new_tweets = self.check_user_tweets(username[0], current_account)
                     
                     if new_tweets is None:  # Indicates a major error
                         break  # Will trigger account switch
@@ -611,7 +576,7 @@ async def async_main():
     monitor = TwitterMonitor(proxy)
     
     try:
-        await monitor.monitor_accounts(ACCOUNTS_TO_MONITOR)
+        await monitor.monitor_accounts()
     except KeyboardInterrupt:
         print("\nMonitoring stopped by user")
     except Exception as e:

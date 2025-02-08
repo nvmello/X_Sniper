@@ -1,139 +1,57 @@
-use std::process::{Command, Stdio};
-use std::io::{BufRead, BufReader};
-use std::thread;
-use std::path::PathBuf;
+// Import the `commands` and `services` modules.
+// These modules contain the logic for handling commands and services in your application.
+mod commands;
+mod services;
 
-fn spawn_and_log(name: &str, mut child: std::process::Child) {
-    if let Some(stdout) = child.stdout.take() {
-        let name = name.to_owned();
-        thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            reader.lines().for_each(|line| {
-                if let Ok(line) = line {
-                    println!("[{}] {}", name, line);
-                }
-            });
-        });
-    }
+// Import the `Builder` struct from the `tauri` crate.
+// `Builder` is used to configure and build the Tauri application.
+use tauri::Builder;
 
-    if let Some(stderr) = child.stderr.take() {
-        let name = name.to_owned();
-        thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            reader.lines().for_each(|line| {
-                if let Ok(line) = line {
-                    eprintln!("[{}] {}", name, line);
-                }
-            });
-        });
-    }
-}
-
-fn get_venv_python(project_root: &PathBuf) -> PathBuf {
-    if cfg!(target_os = "windows") {
-        project_root.join("backend").join("scraper").join("venv").join("Scripts").join("python.exe")
-    } else {
-        project_root.join("backend").join("scraper").join("venv").join("bin").join("python")
-    }
-}
-
-#[tauri::command]
-async fn start_services() -> Result<(), String> {
-    // Get project root directory
-    let project_root = std::env::current_dir()
-        .map_err(|e| e.to_string())?
-        .parent()
-        .ok_or("Cannot find project root")?
-        .to_path_buf();
-
-    println!("Project root: {:?}", project_root);
-    let scraper_dir = project_root.join("backend").join("scraper");
-
-    // Create and set up virtual environment if it doesn't exist
-    if !scraper_dir.join("venv").exists() {
-        println!("Setting up Python virtual environment...");
-        Command::new("python3")
-            .args(&["-m", "venv", "venv"])
-            .current_dir(&scraper_dir)
-            .output()
-            .map_err(|e| format!("Failed to create venv: {}", e))?;
-
-        // Install requirements in the virtual environment
-        let venv_pip = get_venv_python(&project_root)
-            .parent()
-            .unwrap()
-            .join(if cfg!(target_os = "windows") { "pip.exe" } else { "pip" });
-
-        Command::new(venv_pip)
-            .args(&["install", "-r", "requirements.txt"])
-            .current_dir(&scraper_dir)
-            .output()
-            .map_err(|e| format!("Failed to install requirements: {}", e))?;
-    }
-
-    // Start NATS
-    println!("Starting NATS server...");
-    let nats = Command::new("nats-server")
-        .arg("--port")
-        .arg("4222")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to start NATS: {}", e))?;
-
-    spawn_and_log("NATS", nats);
-    std::thread::sleep(std::time::Duration::from_secs(2));
-
-    // Start Python script using venv Python
-    // println!("Starting Python scraper...");
-    // let venv_python = get_venv_python(&project_root);
-    // println!("Using Python from: {:?}", venv_python);
-    
-    // let scraper = Command::new(venv_python)
-    //     .arg("monitor_x.py")
-    //     .env("PYTHONUNBUFFERED", "1")
-    //     .current_dir(&scraper_dir)  // Set working directory to scraper dir
-    //     .stdout(Stdio::piped())
-    //     .stderr(Stdio::piped())
-    //     .spawn()
-    //     .map_err(|e| format!("Failed to start Python scraper: {}", e))?;
-
-    // spawn_and_log("Python", scraper);
-
-    //Start TypeScript bot
-    println!("Starting sniper...");
-    let trading_dir = project_root.join("backend").join("sniper");
-    
-    let bot = Command::new("npx")
-        .arg("tsx")
-        .arg("swap.ts")
-        .current_dir(&trading_dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to start sniper: {}", e))?;
-
-    spawn_and_log("Bot", bot);
-
-    println!("All services started successfully!");
-    Ok(())
-}
-
+// The `main` function is the entry point of the Rust program.
 fn main() {
+    // Print a message to indicate that the application is starting.
     println!("Starting application...");
+
+    // Print the current working directory of the application.
+    // This is useful for debugging purposes to ensure the application is running in the expected directory.
     println!("Current directory: {:?}", std::env::current_dir().unwrap());
-    
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![start_services])
+
+    // Use the Tauri `Builder` to configure and run the application.
+    Builder::default()
+
+    // Use the `setup` method to run initialization code before the Tauri application starts.
+        // Remove this entire .setup() block
         .setup(|_app| {
             tauri::async_runtime::spawn(async {
-                match start_services().await {
-                    Ok(_) => println!("Services started successfully via setup"),
-                    Err(e) => eprintln!("Failed to start services: {}", e),
+                if let Err(e) = commands::services::start_nats().await {
+                    eprintln!("Failed to start NATS: {}", e);
+                } else {
+                    println!("NATS Service started successfully via setup");
+                }
+
+                if let Err(e) = commands::services::start_listening_for_users().await {
+                    eprintln!("Failed to start listening for users: {}", e);
+                } else {
+                    println!("Listening for users started successfully");
                 }
             });
+
             Ok(())
         })
+
+        // Set up the invoke handler for Tauri commands.
+        // `invoke_handler` allows the frontend (e.g., JavaScript) to call Rust functions.
+        // Here, we register the `start_services` function from the `commands::services` module.
+        .invoke_handler(tauri::generate_handler![
+            commands::services::start_sniper,
+            commands::services::start_scraper,
+            commands::services::send_message,
+        ])
+
+        
+        // Run the Tauri application.
+        // `generate_context!()` is a macro that generates the necessary context for the application to run.
         .run(tauri::generate_context!())
+        // If the application fails to run, print an error message and exit.
         .expect("error while running tauri application");
 }
