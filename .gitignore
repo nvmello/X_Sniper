@@ -1,3 +1,26 @@
+# === General ===
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+*.bak
+
+# === Editor ===
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# === Environment Files ===
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
 # === Python ===
 __pycache__/
 *.py[cod]
@@ -25,9 +48,8 @@ build/
 .dask-worker-space/
 ipynb_checkpoints/
 
-# === TypeScript ===
+# === TypeScript/Node.js ===
 node_modules/
-**/node_modules/
 dist/
 build/
 *.tsbuildinfo
@@ -38,24 +60,58 @@ yarn.lock
 .pnpm-debug.log
 .npm-debug.log
 .eslintcache
+.stylelintcache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.next/
+out/
+.nuxt/
+.cache/
+.parcel-cache/
+.web_modules/
+.yarn/
+.yarn-integrity
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
 
-# === Environment Files ===
-.env
-**/.env
+# === Tauri ===
+/src-tauri/target/  # Rust build artifacts
+/src-tauri/Cargo.lock
+/src-tauri/dist/  # Tauri build output
 
-# === General ===
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-*.log
-*.swp
-*.swo
-*.bak
+# === NATS ===
+nats/nats.log
+nats/storage/
 
-# Ignore database files in any directory
+# === Database Files ===
 **/*.db
 **/*.db-shm
 **/*.db-wal
 **/crypto_tweets.json
 
+# === Other ===
+*.tgz
+.report/
+.pids/
+*.seed
+*.pid.lock
+.lib-cov/
+coverage/
+*.lcov
+.nyc_output/
+.grunt/
+bower_components/
+.lock-wscript/
+build/Release/
+jspm_packages/
+.node_repl_history
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vscode-test/
