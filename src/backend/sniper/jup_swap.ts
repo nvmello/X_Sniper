@@ -3,11 +3,16 @@ import fetch from "cross-fetch";
 import { env_config } from "./config";
 const { owner, connection } = env_config;
 
-export async function jup_swap(outputMint: string) {
+export async function jup_swap(
+  outputMint: string,
+  amount: number,
+  slippage: number,
+  tip: number
+) {
   try {
     const inputMint = "So11111111111111111111111111111111111111112";
 
-    const amount = 1000000000;
+    const amount = 10000;
     const slippageBps = 50;
     console.log(
       `Swapping ${amount} lamports from ${inputMint} to ${outputMint}...`

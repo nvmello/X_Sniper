@@ -5,7 +5,6 @@ import { invoke } from "@tauri-apps/api/core";
 interface User {
   username: string;
   mint: string | null;
-  photopath: string;
   amount: number;
 }
 
@@ -25,7 +24,6 @@ function Scrollview() {
     try {
       const fetchedUsers = await invoke<User[]>("get_users");
       setUsers(fetchedUsers);
-      console.log(users);
     } catch (error) {
       console.error("Error fetching users:", error);
     }
@@ -77,39 +75,45 @@ function Scrollview() {
   };
 
   return (
-    <div>
-      <div className="flex">
-        <input
-          className="py-2 px-4 rounded mt-4 m-1"
-          type="text"
-          value={newUser}
-          onChange={handleChange}
-          onKeyDown={(e) => e.key === "Enter" && sendUser()}
-        />
-        <button
-          onClick={sendUser}
-          className="bg-green-500 m-1 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4"
-        >
-          Add User
-        </button>
-        <button
-          onClick={removeUser}
-          className="bg-red-500 m-1 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4"
-        >
-          Remove User
-        </button>
-      </div>
-
-      <div className="w-1/2 min-h-[300px] p-4 rounded-lg">
-        {users.map((user) => (
-          <Usercard
-            key={user.username}
-            username={user.username}
-            photoLink={user.photopath}
-            mint={user.mint || undefined}
-            pnl={user.amount}
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="grid grid-cols-3 gap-3 p-4">
+        <div className="flex justify-center">
+          <input
+            className="py-2 px-4 rounded mt-4 m-1 bg-gray-700 w-3/4"
+            type="text"
+            value={newUser}
+            onChange={handleChange}
+            onKeyDown={(e) => e.key === "Enter" && sendUser()}
           />
-        ))}
+        </div>
+        <div className="flex justify-center">
+          <button
+            onClick={sendUser}
+            className="bg-green-500 m-1 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4"
+          >
+            Add User
+          </button>
+        </div>
+        <div className="flex justify-center">
+          <button
+            onClick={removeUser}
+            className="bg-red-500 m-1 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4"
+          >
+            Remove User
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-col w-full gap-4 p-4">
+          {users.map((user) => (
+            <Usercard
+              key={user.username}
+              username={user.username}
+              mint={user.mint || undefined}
+              pnl={user.amount}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

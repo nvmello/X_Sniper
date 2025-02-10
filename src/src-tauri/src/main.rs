@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 struct User {
     username: String,
     // mint: Option<String>,
-    photopath: String,
     // amount: f64,
 }
 
@@ -33,7 +32,7 @@ fn get_users() -> Result<Vec<User>, String> {
         .map_err(|e| format!("Failed to open database: {}", e))?;
     
     let mut stmt = conn
-        .prepare("SELECT username, mint, photopath, amount FROM users")
+        .prepare("SELECT username, mint, amount FROM users")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
     let users = stmt
@@ -41,7 +40,6 @@ fn get_users() -> Result<Vec<User>, String> {
             Ok(User {
                 username: row.get(0)?,
                 // mint: row.get(1)?,
-                photopath: row.get(2)?,
                 // amount: row.get(3)?,
             })
         })
@@ -84,6 +82,12 @@ fn main() {
                 } else {
                     println!("Listening for users started successfully");
                 }
+
+                if let Err(e) = commands::services::start_sniper().await {
+                    eprintln!("Failed to start Sniper: {}", e);
+                } else {
+                    println!("Sniper Service started successfully via setup");
+                }
             });
 
             Ok(())
@@ -94,7 +98,6 @@ fn main() {
         // Here, we register the `start_services` function from the `commands::services` module.
         .invoke_handler(tauri::generate_handler![
             get_users,
-            commands::services::start_sniper,
             commands::services::start_scraper,
             commands::services::send_message,
         ])

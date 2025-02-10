@@ -140,8 +140,6 @@ pub async fn send_message(subject: String, payload: Value) -> Result<(), String>
     client.flush().await.map_err(|e| e.to_string())?;  // 🔥 Ensures the message is actually sent
 
     tokio::time::sleep(Duration::from_secs(2)).await;  // 🚀 Keep connection open
-
-    println!("\n✅✅✅✅✅ Message published successfully! ✅✅✅✅✅");
     Ok(())
 }
 

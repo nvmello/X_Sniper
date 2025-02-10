@@ -14,14 +14,19 @@ import { env_config } from "./config";
 const { owner, connection } = env_config;
 const inputMint = "So11111111111111111111111111111111111111112";
 
-const amount = 1000000000;
+const amount = 10000;
 const slippage = 25;
 const txVersion = "V0";
 const isInputSol = true;
 const isOutputSol = false;
 const isV0Tx = true;
 
-export async function ray_swap(outputMint: string) {
+export async function ray_swap(
+  outputMint: string,
+  amount: number,
+  slippage: number,
+  tip: number
+) {
   // get statistical transaction fee from API
   /**
    * vh: very high

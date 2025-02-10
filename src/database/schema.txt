@@ -1,1 +1,1 @@
-username    |   sniped  |   manifest    |   photopath   |   amount  
+username    |   sniped  |   mint    |   amount  
