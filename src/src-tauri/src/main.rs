@@ -24,7 +24,7 @@ fn get_users() -> Result<Vec<User>, String> {
         .parent()
         .ok_or_else(|| "Failed to get parent directory".to_string())?
         .join("database")
-        .join("users.db");
+        .join("sniper.db");
     
     println!("Attempting to connect to database at: {:?}", db_path);
     

@@ -12,7 +12,7 @@ export async function jup_swap(
   try {
     const inputMint = "So11111111111111111111111111111111111111112";
 
-    const amount = 10000;
+    const amount = 1_000_000;
     const slippageBps = 50;
     console.log(
       `Swapping ${amount} lamports from ${inputMint} to ${outputMint}...`
@@ -52,46 +52,60 @@ export async function jup_swap(
       throw new Error("No swap transaction returned");
     }
 
-    // Deserialize and process transaction
+    // Get latest blockhash BEFORE deserializing
+    const latestBlockHash = await connection.getLatestBlockhash("confirmed");
+
     const swapTransactionBuf = Buffer.from(swapData.swapTransaction, "base64");
     var transaction = VersionedTransaction.deserialize(swapTransactionBuf);
 
-    // Get latest blockhash BEFORE signing
-    const latestBlockHash = await connection.getLatestBlockhash();
-
-    // Sign the transaction
     transaction.sign([owner]);
 
-    // Execute the transaction
     console.log("Sending transaction...");
-    const rawTransaction = transaction.serialize();
-    const txid = await connection.sendRawTransaction(rawTransaction, {
+    const txid = await connection.sendTransaction(transaction, {
       skipPreflight: true,
       maxRetries: 2,
+      preflightCommitment: "confirmed",
     });
 
     console.log(`Transaction sent with ID: ${txid}`);
-    // console.log("Waiting for confirmation...");
+    console.log("Waiting for confirmation...");
 
-    // const confirmationResponse = await connection.confirmTransaction(
-    //   {
-    //     signature: txid,
-    //     blockhash: latestBlockHash.blockhash,
-    //     lastValidBlockHeight: swapData.lastValidBlockHeight,
-    //   },
-    //   "processed"
-    // );
+    try {
+      const confirmation = await connection.confirmTransaction(
+        {
+          signature: txid,
+          blockhash: latestBlockHash.blockhash,
+          lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+        },
+        "confirmed"
+      );
 
-    // if (confirmationResponse.value.err) {
-    //   throw new Error(`Transaction failed: ${confirmationResponse.value.err}`);
-    // }
+      if (confirmation.value.err) {
+        throw new Error(`Transaction failed: ${confirmation.value.err}`);
+      }
 
-    console.log(
-      `Transaction successful! View at: https://solscan.io/tx/${txid}`
-    );
-    return txid;
-  } catch (error) {
-    console.error("Error in swap function:", error);
-    throw error;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      console.log(
+        `Transaction successful! View at: https://solscan.io/tx/${txid}`
+      );
+      return txid;
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Transaction confirmation failed:", err.message);
+        throw new Error(`Transaction failed to confirm: ${err.message}`);
+      } else {
+        console.error("Transaction confirmation failed with unknown error");
+        throw new Error("Transaction failed to confirm with unknown error");
+      }
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error("Error in swap function:", err.message);
+      throw err;
+    } else {
+      console.error("Unknown error in swap function");
+      throw new Error("Unknown error in swap function");
+    }
   }
 }

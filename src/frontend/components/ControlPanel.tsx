@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useEffect } from "react";
+import { Connection, Keypair } from "@solana/web3.js";
+import bs58 from "bs58";
 
 interface WalletData {
-  walletId: string;
+  publicKey: string;
   balance: number;
 }
 
@@ -10,23 +12,61 @@ const ControlPanel: React.FC = () => {
   const [sniperStarted, setSniperStarted] = useState<boolean>(false);
   const [scraperStarted, setScraperStarted] = useState<boolean>(false);
   const [privateKey, setPrivateKey] = useState<string>("");
+  const [publicKey, setPublicKey] = useState<string>("");
+  const [rpc, setRPC] = useState<string>("");
+
   const [slippage, setSlippage] = useState<number>(5);
   const [tip, setTip] = useState<number>(0.02);
-  const [walletId, setWalletId] = useState<string>("");
   const [balance, setBalance] = useState<number>(0);
 
   // Function to handle wallet connection
-  const handleConnect = async (): Promise<void> => {};
+  const handleConnect = async (): Promise<void> => {
+    try {
+      const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
+      setPublicKey(keypair.publicKey.toString());
+      // read txt, send over nats, call fetchwalleatdata
+      try {
+        await invoke("send_message", {
+          subject: "tx.privatekey",
+          payload: privateKey,
+        });
+        await invoke("send_message", {
+          subject: "tx.rpc",
+          payload: rpc,
+        });
+        fetchWalletData();
+      } catch (error) {
+        console.error("Failed to send private key", error);
+      }
+    } catch (error) {
+      setPublicKey("Invalid private key, please try again");
+      console.error("Invalid private key", error);
+    }
+  };
 
   // Function to fetch wallet data (to be implemented with your database)
-  const fetchWalletData = async (): Promise<void> => {};
+  const fetchWalletData = async (): Promise<void> => {
+    try {
+      // maybe sleep 1 second?
+      // read wallet data from wallet db
+      // setPublicKey(publicKey)
+      // setBalance(solBalance)
+      setBalance(69.42);
+    } catch (error) {
+      console.error(
+        "Failed to read wallet data, check private key validity",
+        error
+      );
+    }
+  };
 
   const handleSlippageChange = async (value: number): Promise<void> => {
+    console.log("New slippage value:", value);
     setSlippage(value);
     try {
       await invoke("send_message", {
         subject: "tx.slippage",
-        payload: slippage,
+        payload: value,
       });
     } catch (error) {
       console.error("Failed to update slippage:", error);
@@ -46,15 +86,6 @@ const ControlPanel: React.FC = () => {
   };
 
   const runStartSniper = async (): Promise<void> => {
-    console.log("Attempting to start sniper");
-    try {
-      await invoke("start_sniper");
-      console.log("Successfully started Sniper");
-      setSniperStarted(true);
-    } catch (error) {
-      console.error("Failed to start sniper:", error);
-    }
-
     console.log("Attempting to start scraper");
     try {
       await invoke("start_scraper");
@@ -80,6 +111,16 @@ const ControlPanel: React.FC = () => {
             }
             placeholder="Enter your private key"
           />
+          <h1 className="text-white whitespace-nowrap">RPC Connection:</h1>
+          <input
+            className="flex-1 py-2 px-4 rounded bg-gray-700 text-white"
+            // type="password"
+            value={rpc}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setRPC(e.target.value)
+            }
+            placeholder="Enter your RPC Connection"
+          />
           <button
             onClick={handleConnect}
             className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-6 rounded"
@@ -93,7 +134,7 @@ const ControlPanel: React.FC = () => {
       <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-700 p-4 rounded">
         <div className="flex justify-center items-center">
           <h1 className="text-lg text-white break-all">
-            Wallet: {walletId || "Not Connected"}
+            Wallet: {publicKey || "Not Connected"}
           </h1>
         </div>
         <div className="flex justify-center items-center">
@@ -128,8 +169,8 @@ const ControlPanel: React.FC = () => {
           <input
             type="range"
             min="0.01"
-            max="1"
-            step="0.01"
+            max="0.1"
+            step="0.001"
             value={tip}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               handleTipChange(parseFloat(e.target.value))

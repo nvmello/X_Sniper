@@ -64,9 +64,9 @@ function UserCard({
           <div className="w-full max-w-xs">
             <input
               type="range"
-              min="0.1"
+              min="0.01"
               max="10"
-              step="0.1"
+              step="0.01"
               value={solAmount}
               onChange={handleSliderChange}
               className="w-full h-2 appearance-none cursor-pointer bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
@@ -76,7 +76,7 @@ function UserCard({
         </div>
 
         <div className="flex justify-center text-l items-center font-semibold text-white">
-          <h1>{solAmount.toFixed(1)} SOL</h1>
+          <h1>{solAmount.toFixed(2)} SOL</h1>
         </div>
       </div>
     </div>

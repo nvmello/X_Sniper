@@ -2,6 +2,8 @@
  * https://docs.raydium.io/raydium/traders/trade-api
  */
 import {
+  Connection,
+  Keypair,
   Transaction,
   VersionedTransaction,
   sendAndConfirmTransaction,
@@ -14,19 +16,31 @@ import { env_config } from "./config";
 const { owner, connection } = env_config;
 const inputMint = "So11111111111111111111111111111111111111112";
 
-const amount = 10000;
-const slippage = 25;
+// const amount = 4_000_000_000;
+// const slippage = 1;
 const txVersion = "V0";
 const isInputSol = true;
 const isOutputSol = false;
 const isV0Tx = true;
 
 export async function ray_swap(
+  owner: Keypair,
   outputMint: string,
   amount: number,
   slippage: number,
-  tip: number
+  priorityFee: number,
+  connection: Connection
 ) {
+  console.log("************************************************************");
+  console.log("pub key: " + owner.publicKey);
+  console.log("output mint: " + outputMint);
+  console.log("amount: " + amount);
+  console.log("slippage: " + slippage);
+  console.log("tip: " + priorityFee);
+  // console.log(connection)
+
+  console.log("************************************************************");
+
   // get statistical transaction fee from API
   /**
    * vh: very high
@@ -38,7 +52,7 @@ export async function ray_swap(
     success: boolean;
     data: { default: { vh: number; h: number; m: number } };
   }>(`${API_URLS.BASE_HOST}${API_URLS.PRIORITY_FEE}`);
-  const priorityFee = 100000; //option to set priorityfee manually
+  // const priorityFee = 100000; //option to set priorityfee manually
 
   //fetch quote
   const { data: swapResponse } = await axios.get<any>(
@@ -65,6 +79,14 @@ export async function ray_swap(
     // inputAccount: isInputSol ? undefined : inputTokenAcc?.toBase58(),
     // outputAccount: isOutputSol ? undefined : outputTokenAcc?.toBase58(),
   });
+
+  if (!swapTransactions.data || !swapTransactions.data.length) {
+    throw new Error("Invalid response from Raydium swap API.");
+  }
+
+  console.log("Raydium API response:", swapTransactions);
+
+  console.log("Swap Response:", swapResponse);
 
   const allTxBuf = swapTransactions.data.map((tx) =>
     Buffer.from(tx.transaction, "base64")

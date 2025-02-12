@@ -395,7 +395,7 @@ class TwitterMonitor:
             print(f"Error handling redirects: {e}")
             # Continue execution even if handling fails
 
-    def check_user_tweets(self, username, account):
+    def check_user_tweets(self, username, account, amount):
         try:
             print(f"Checking tweets for {username}...")
             self.driver.get(f"https://twitter.com/{username}")
@@ -423,7 +423,7 @@ class TwitterMonitor:
             self.handle_account_success(account)
             
             new_tweets = []
-            for tweet in tweet_elements[:3]:
+            for tweet in tweet_elements[:5]:
                 try:
                     # # First and most important check: Look for socialContext which indicates a repost
                     # try:
@@ -524,7 +524,7 @@ class TwitterMonitor:
             - JSON-based tweet archiving
         """
 
-        conn = sqlite3.connect("../../database/users.db")
+        conn = sqlite3.connect("../../database/sniper.db")
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users")  # Change 'users' to your actual table name
         users = cursor.fetchall()
@@ -547,12 +547,12 @@ class TwitterMonitor:
 
                 for username in users  *  10:
                     amount = cursor.execute("SELECT amount FROM users WHERE username = ?", (username[0],)).fetchone()
-                    # conn = sqlite3.connect("../../database/users.db")
+                    # conn = sqlite3.connect("../../database/sniper.db")
                     # cursor = conn.cursor()
                     # cursor.execute("SELECT * FROM users")  # Change 'users' to your actual table name
                     # users = cursor.fetchall()
                     print("USERNAME IN USERNAMES: " + username[0])
-                    new_tweets = self.check_user_tweets(username[0], current_account)
+                    new_tweets = self.check_user_tweets(username[0], current_account, amount)
                     
                     if new_tweets is None:  # Indicates a major error
                         break  # Will trigger account switch
