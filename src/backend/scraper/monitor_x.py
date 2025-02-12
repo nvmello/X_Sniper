@@ -39,6 +39,7 @@ import os
 from dotenv import load_dotenv
 import re
 import random
+import requests
 import asyncio
 import nats
 import traceback
@@ -47,26 +48,24 @@ import sqlite3
 
 tracemalloc.start()
 
-ACCOUNTS_TO_MONITOR = [
-            "v_mello_",
-            "mcuban",
-            "realDonaldTrump",
-            "BarronXSpaces",
-            'kanyewest',
-            "stoolpresidente", #dave portnoy
-            # "MELANIATRUMP",
-            "mcuban",
-            "IvankaTrump",
-            "EricTrump",
-            "mcuban",
-            "DonaldJTrumpJr",
-            # "elonmusk",
-            # "JDVance",
-            # "mrbeast",
-            # "joerogan",
-        ]
-
-
+# ACCOUNTS_TO_MONITOR = [
+#             "v_mello_",
+#             "mcuban",
+#             "realDonaldTrump",
+#             "BarronXSpaces",
+#             'kanyewest',
+#             "stoolpresidente", #dave portnoy
+#             # "MELANIATRUMP",
+#             "mcuban",
+#             "IvankaTrump",
+#             "EricTrump",
+#             "mcuban",
+#             "DonaldJTrumpJr",
+#             # "elonmusk",
+#             # "JDVance",
+#             # "mrbeast",
+#             # "joerogan",
+#         ]
 
 class TwitterAccount:
     """
@@ -122,25 +121,36 @@ class TwitterMonitor:
         self.loop_thread.start()
         print("TwitterMonitor initialization complete")
 
-    async def broadcast_message(self, address):
+    async def broadcast_message(self, amount, address):
         """Internal method for broadcasting"""
         try:
-            print("attempting boadcast...")
+            print("attempting broadcast...")
             nc = await nats.connect("nats://127.0.0.1:4222", token="QAkF884gXdP9dXk")
-            print(f"Connected to NATS, broadcasting: {address}")
-            await nc.publish("ca", address.encode())
+            
+            # Create a message object with all necessary data
+            message = {
+                "address": address,
+                "amount": amount
+            }
+            
+            # Convert to JSON string and encode
+            message_json = json.dumps(message).encode()
+            
+            # Send as single message
+            await nc.publish("tx.data", message_json)
+            
             await nc.close()
-            print(f"Successfully broadcast: {address}")
+            print(f"Successfully broadcast: {address} for {amount}")
         except Exception as e:
             print(f"Error in broadcast_message: {e}")
             raise
 
-    def process_contract(self, address):
+    def process_contract(self, amount, address):
         """Synchronous wrapper for broadcasting"""
         try:
             print("Attempting to process contract...")
             future = asyncio.run_coroutine_threadsafe(
-                self.broadcast_message(address), 
+                self.broadcast_message(amount, address), 
                 self.loop
             )
             future.result(timeout=10)  # Wait up to 10 seconds for the broadcast
@@ -359,42 +369,53 @@ class TwitterMonitor:
             self.handle_account_failure(account)
             return False
 
-    def check_user_tweets(self, username, account):
-        """
-        Check recent tweets from specified user.
-        
-        Args:
-            username (str): Twitter username to monitor
-            account (TwitterAccount): Account being used for monitoring
-            
-        Returns:
-            list: List of new tweets containing monitored content
-            
-        Features:
-            - Repost filtering
-            - Contract address detection
-            - Tweet deduplication
-            - Random scrolling behavior
-            - Timestamp extraction
-            - JSON data storage
-        """
+    def handle_potential_redirects(self):
+        """Handle any Twitter redirects or overlays that might appear"""
         try:
+            # Try to find and close any login prompts
+            overlay_selectors = [
+                '[data-testid="close"]',  # Generic close button
+                '[data-testid="confirmationSheetClose"]',  # Confirmation sheet close
+                '[data-testid="LoginModal_Close_Button"]',  # Login modal close
+                'div[aria-label="Close"]'  # Generic close by aria-label
+            ]
+            
+            for selector in overlay_selectors:
+                try:
+                    close_button = WebDriverWait(self.driver, 3).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    close_button.click()
+                    print(f"Closed overlay with selector: {selector}")
+                    time.sleep(1)  # Short wait after closing
+                except:
+                    continue
+                    
+        except Exception as e:
+            print(f"Error handling redirects: {e}")
+            # Continue execution even if handling fails
+
+    def check_user_tweets(self, username, account, amount):
+        try:
+            print(f"Checking tweets for {username}...")
             self.driver.get(f"https://twitter.com/{username}")
-            time.sleep(random.uniform(4, 8))
+            
+            # Wait for page load
+            time.sleep(random.uniform(4, 6))
             
             # Navigate to Posts tab
             try:
                 posts_tab = self.wait.until(EC.presence_of_element_located(
                     (By.CSS_SELECTOR, 'a[href$="/tweets"]')))
                 posts_tab.click()
-                time.sleep(random.uniform(2, 4))
+                time.sleep(random.uniform(1, 2))
             except:
                 print(f"Could not find Posts tab for {username}, continuing with current view")
             
             for _ in range(2):
                 scroll_amount = random.randint(300, 700)
                 self.driver.execute_script(f"window.scrollBy(0, {scroll_amount})")
-                time.sleep(random.uniform(2, 4))
+                time.sleep(random.uniform(1, 2))
             
             tweet_elements = self.wait.until(EC.presence_of_all_elements_located(
                 (By.CSS_SELECTOR, 'article[data-testid="tweet"]')))
@@ -402,7 +423,7 @@ class TwitterMonitor:
             self.handle_account_success(account)
             
             new_tweets = []
-            for tweet in tweet_elements[:3]:
+            for tweet in tweet_elements[:5]:
                 try:
                     # # First and most important check: Look for socialContext which indicates a repost
                     # try:
@@ -431,7 +452,7 @@ class TwitterMonitor:
                             if address not in self.processed_addresses:
                                 print(f"Broadcasting: {address}")
                                 try:
-                                    self.process_contract(address)
+                                    self.process_contract(amount, address)
                                     self.processed_addresses.add(address)
                                 except Exception as e:
                                     print(f"Failed to process contract {address}: {e}")
@@ -488,7 +509,7 @@ class TwitterMonitor:
     def monitor_accounts(self, min_interval=10, max_interval=20):
         """
         Main monitoring loop with aggressive polling intervals.
-        With 5 accounts rotating, each account gets ~2-4 minutes rest between uses.
+        With 4 accounts rotating, each account gets ~1-2 minutes rest between uses.
         
         Args:
             usernames (list): List of Twitter usernames to monitor
@@ -503,14 +524,12 @@ class TwitterMonitor:
             - JSON-based tweet archiving
         """
 
-        conn = sqlite3.connect("../../database/users.db")
+        conn = sqlite3.connect("../../database/sniper.db")
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users")  # Change 'users' to your actual table name
-
+        users = cursor.fetchall()
 
         while True:
-            cursor.execute("SELECT * FROM users")  # Change 'users' to your actual table name
-            users = cursor.fetchall()
             try:
                 current_account = self.get_next_available_account()
                 
@@ -526,9 +545,14 @@ class TwitterMonitor:
                         continue
                     self.logged_in_account = current_account
 
-                for username in users:
+                for username in users  *  10:
+                    amount = cursor.execute("SELECT amount FROM users WHERE username = ?", (username[0],)).fetchone()
+                    # conn = sqlite3.connect("../../database/sniper.db")
+                    # cursor = conn.cursor()
+                    # cursor.execute("SELECT * FROM users")  # Change 'users' to your actual table name
+                    # users = cursor.fetchall()
                     print("USERNAME IN USERNAMES: " + username[0])
-                    new_tweets = self.check_user_tweets(username[0], current_account)
+                    new_tweets = self.check_user_tweets(username[0], current_account, amount)
                     
                     if new_tweets is None:  # Indicates a major error
                         break  # Will trigger account switch
@@ -559,7 +583,7 @@ class TwitterMonitor:
                             }
                             f.write(json.dumps(tweet_data) + '\n')
                     
-                    time.sleep(random.uniform(10, 20))
+                    time.sleep(random.uniform(5, 13))
                 
                 cycle_interval = random.uniform(min_interval, max_interval)
                 print(f"\nWaiting {int(cycle_interval)} seconds before next cycle...")
